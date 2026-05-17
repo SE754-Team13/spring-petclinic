@@ -31,6 +31,10 @@ import jakarta.validation.Valid;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
+ * Spring MVC controller responsible for managing Visit records for a specific Pet
+ * belonging to an Owner. Handles HTTP requests for creating and editing visits,
+ * delegating persistence to OwnerRepository.
+ *
  * @author Juergen Hoeller
  * @author Ken Krebs
  * @author Arjen Poutsma
@@ -47,6 +51,11 @@ class VisitController {
 		this.owners = owners;
 	}
 
+	/**
+	 * Prevents binding of the id field to protect against manipulation of entity
+	 * identifiers via HTTP parameters.
+	 * @param dataBinder the WebDataBinder to configure
+	 */
 	@InitBinder
 	public void setAllowedFields(WebDataBinder dataBinder) {
 		dataBinder.setDisallowedFields("id", "*.id");
@@ -56,8 +65,11 @@ class VisitController {
 	 * Called before each and every @RequestMapping annotated method. 2 goals: - Make sure
 	 * we always have fresh data - Since we do not use the session scope, make sure that
 	 * Pet object always has an id (Even though id is not part of the form fields)
-	 * @param petId
-	 * @return Pet
+	 * @param ownerId the owner's database ID from the URL path variable
+	 * @param petId the pet's database ID from the URL path variable
+	 * @param model the model map, populated with pet and owner attributes
+	 * @return a new Visit instance pre-associated with the specified pet
+	 * @throws IllegalArgumentException if the owner or pet cannot be found
 	 */
 	@ModelAttribute("visit")
 	public Visit loadPetWithVisit(@PathVariable("ownerId") int ownerId, @PathVariable("petId") int petId,
@@ -88,6 +100,17 @@ class VisitController {
 
 	// Spring MVC calls method loadPetWithVisit(...) before processNewVisitForm is
 	// called
+	/**
+	 * Processes the new visit form submission. Saves the visit against the specified pet
+	 * and owner if validation passes, or redisplays the form with errors.
+	 * @param owner the owner of the pet, resolved as a model attribute
+	 * @param petId the pet's database ID from the URL path variable
+	 * @param visit the visit to save, populated and validated from form input
+	 * @param result binding and validation result
+	 * @param redirectAttributes flash attributes for the redirect after successful save
+	 * @return a redirect to the owner detail page on success, or the form view if errors
+	 * exist
+	 */
 	@PostMapping("/owners/{ownerId}/pets/{petId}/visits/new")
 	public String processNewVisitForm(@ModelAttribute Owner owner, @PathVariable int petId, @Valid Visit visit,
 			BindingResult result, RedirectAttributes redirectAttributes) {
