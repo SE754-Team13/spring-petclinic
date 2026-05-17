@@ -39,6 +39,11 @@ import jakarta.validation.Valid;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
+ * Spring MVC controller responsible for managing Owner entities. Handles HTTP requests
+ * for creating, updating, searching, and displaying owners. Acts as the primary entry
+ * point for owner-related business logic, delegating persistence operations to
+ * OwnerRepository.
+ *
  * @author Juergen Hoeller
  * @author Ken Krebs
  * @author Arjen Poutsma
@@ -56,11 +61,25 @@ class OwnerController {
 		this.owners = owners;
 	}
 
+	/**
+	 * Prevents binding of the 'id' field to protect against malicious or accidental
+	 * manipulation of entity identifiers via HTTP parameters.
+	 * @param dataBinder the WebDataBinder to configure
+	 */
 	@InitBinder
 	public void setAllowedFields(WebDataBinder dataBinder) {
 		dataBinder.setDisallowedFields("id", "*.id");
 	}
 
+	/**
+	 * Resolves the Owner model attribute for the current request. Returns a new empty
+	 * Owner if no ownerId path variable is present, or loads the existing owner from the
+	 * repository for edit and display requests.
+	 * @param ownerId the owner's database ID, or null for new owner forms
+	 * @return the resolved or newly constructed Owner
+	 * @throws IllegalArgumentException if an ownerId is provided but no matching owner
+	 * exists
+	 */
 	@ModelAttribute("owner")
 	public Owner findOwner(@PathVariable(name = "ownerId", required = false) Integer ownerId) {
 		return ownerId == null ? new Owner()
@@ -74,6 +93,14 @@ class OwnerController {
 		return VIEWS_OWNER_CREATE_OR_UPDATE_FORM;
 	}
 
+	/**
+	 * Processes the new owner registration form submission. Saves the owner to the
+	 * database if validation passes, or redisplays the form with error messages.
+	 * @param owner the owner to create, populated and validated from form input
+	 * @param result binding and validation result for the owner form
+	 * @param redirectAttributes flash attributes for the redirect after successful save
+	 * @return a redirect to the new owner's detail page, or the form view if errors exist
+	 */
 	@PostMapping("/owners/new")
 	public String processCreationForm(@Valid Owner owner, BindingResult result, RedirectAttributes redirectAttributes) {
 		if (result.hasErrors()) {
@@ -91,6 +118,17 @@ class OwnerController {
 		return "owners/findOwners";
 	}
 
+	/**
+	 * Processes the owner search form. Searches by last name (prefix match) with
+	 * pagination. Redirects directly to the owner detail page if exactly one result is
+	 * found, or displays a paginated list for multiple results.
+	 * @param page the page number to display (1-indexed, defaults to 1)
+	 * @param owner used to carry the lastName search parameter from the form
+	 * @param result binding result; used to report a not-found error
+	 * @param model the model to populate with pagination and result data
+	 * @return the owners list view, a redirect to a single owner, or the search form if
+	 * no results
+	 */
 	@GetMapping("/owners")
 	public String processFindForm(@RequestParam(defaultValue = "1") int page, Owner owner, BindingResult result,
 			Model model) {
@@ -138,6 +176,16 @@ class OwnerController {
 		return VIEWS_OWNER_CREATE_OR_UPDATE_FORM;
 	}
 
+	/**
+	 * Processes the owner edit form submission. Validates the updated owner data and
+	 * verifies that the form ID matches the URL path variable before saving.
+	 * @param owner the owner with updated field values from the form
+	 * @param result binding and validation result
+	 * @param ownerId the owner ID from the URL path variable
+	 * @param redirectAttributes flash attributes for the redirect after successful update
+	 * @return a redirect to the owner detail page on success, or the form view if errors
+	 * exist
+	 */
 	@PostMapping("/owners/{ownerId}/edit")
 	public String processUpdateOwnerForm(@Valid Owner owner, BindingResult result, @PathVariable("ownerId") int ownerId,
 			RedirectAttributes redirectAttributes) {
